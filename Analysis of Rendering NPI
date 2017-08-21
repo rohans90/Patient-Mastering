@@ -1,0 +1,263 @@
+
+----    Create the final tables from the total Datapull w/out duplication
+DROP TABLE IF EXISTS ALLpatients_base1;
+CREATE TABLE IF NOT EXISTS ALLPATIENTS_base1 as
+select
+(trim(PATIENT_SUFFIX)||trim(SOUNDEX_KEY)||trim(GENDER)||trim(cast(DOB as integer))) as identifier,
+patientzip, month, year,
+count(distinct RENDERING_PR_NPI) as COUNT_of_RENDERING
+from total_patient_counts
+group by
+identifier, patientzip, month, year
+;
+
+
+DROP TABLE IF EXISTS ALLpatients_base3;
+CREATE TABLE IF NOT EXISTS ALLPATIENTS_base3 as
+select
+(trim(PATIENT_SUFFIX)||trim(SOUNDEX_KEY)||trim(GENDER)||trim(cast(DOB as integer))) as identifier,
+patientzip, month, year,
+count(distinct Encounters) as Number_of_Encounters
+from total_patient_counts
+group by
+identifier, patientzip, month, year;
+
+
+
+
+DROP TABLE IF EXISTS ALLpatients_base;
+CREATE TABLE IF NOT EXISTS ALLPATIENTS_base as
+select a.*, c.Number_of_Encounters 
+ from allpatients_base1 a  inner join allpatients_base3 c on 
+a.identifier= c.identifier and a.patientzip=c.patientzip and
+a.month=c.month and a.year = c.year;
+
+
+---Clean the final data
+drop table if exists allpatients_brezcs2;
+create table allpatients_brezcs2 as 
+select * from allpatients_base where identifier  not like 'XXX -%' and identifier 
+not like 'xxx -%'
+and identifier <> '' or identifier is not null;
+
+--------------------------------------RENDERING NPI ANALYSIS--------------------------------------
+---Filter for bad and good data based on excel analysis
+drop table if exists rendering_analysis1;
+create table rendering_analysis1 as 
+select * from allpatients_brezcs2
+where count_of_rendering <=5;
+
+
+---Create Month and Year columns
+drop table if exists rendering_analysis_12z;
+create table rendering_analysis_12z as 
+Select distinct identifier,patientzip,
+case when cast(Year as integer) = 2014 and Month = 1 then count_of_rendering else 0 end as Jan14,
+case when cast(Year as integer) = 2014 and Month = 2 then count_of_rendering else 0 end as Feb14,
+case when cast(Year as integer) = 2014 and Month = 3 then count_of_rendering else 0 end as Mar14,
+case when cast(Year as integer) = 2014 and Month = 4 then count_of_rendering else 0 end as Apr14,
+case when cast(Year as integer) = 2014 and Month = 5 then count_of_rendering else 0 end as May14,
+case when cast(Year as integer) = 2014 and Month = 6 then count_of_rendering else 0 end as Jun14,
+case when cast(Year as integer) = 2014 and Month = 7 then count_of_rendering else 0 end as Jul14,
+case when cast(Year as integer) = 2014 and Month = 8 then count_of_rendering else 0 end as Aug14,
+case when cast(Year as integer) = 2014 and Month = 9 then count_of_rendering else 0 end as Sep14,
+case when cast(Year as integer) = 2014 and Month = 10 then count_of_rendering else 0 end as Oct14,
+case when cast(Year as integer) = 2014 and Month = 11 then count_of_rendering else 0 end as Nov14,
+case when cast(Year as integer) = 2014 and Month = 12 then count_of_rendering else 0 end as Dec14,
+case when cast(Year as integer) = 2015 and Month = 1 then count_of_rendering else 0 end as Jan15,
+case when cast(Year as integer) = 2015 and Month = 2 then count_of_rendering else 0 end as Feb15,
+case when cast(Year as integer) = 2015 and Month = 3 then count_of_rendering else 0 end as Mar15,
+case when cast(Year as integer) = 2015 and Month = 4 then count_of_rendering else 0 end as Apr15,
+case when cast(Year as integer) = 2015 and Month = 5 then count_of_rendering else 0 end as May15,
+case when cast(Year as integer) = 2015 and Month = 6 then count_of_rendering else 0 end as Jun15,
+case when cast(Year as integer) = 2015 and Month = 7 then count_of_rendering else 0 end as Jul15,
+case when cast(Year as integer) = 2015 and Month = 8 then count_of_rendering else 0 end as Aug15,
+case when cast(Year as integer) = 2015 and Month = 9 then count_of_rendering else 0 end as Sep15,
+case when cast(Year as integer) = 2015 and Month = 10 then count_of_rendering else 0 end as Oct15,
+case when cast(Year as integer) = 2015 and Month = 11 then count_of_rendering else 0 end as Nov15,
+case when cast(Year as integer) = 2015 and Month = 12 then count_of_rendering else 0 end as Dec15,
+case when cast(Year as integer) = 2016 and Month = 1 then count_of_rendering else 0 end as Jan16,
+case when cast(Year as integer) = 2016 and Month = 2 then count_of_rendering else 0 end as Feb16,
+case when cast(Year as integer) = 2016 and Month = 3 then count_of_rendering else 0 end as Mar16,
+case when cast(Year as integer) = 2016 and Month = 4 then count_of_rendering else 0 end as Apr16,
+case when cast(Year as integer) = 2016 and Month = 5 then count_of_rendering else 0 end as May16,
+case when cast(Year as integer) = 2016 and Month = 6 then count_of_rendering else 0 end as Jun16,
+case when cast(Year as integer) = 2016 and Month = 7 then count_of_rendering else 0 end as Jul16,
+case when cast(Year as integer) = 2016 and Month = 8 then count_of_rendering else 0 end as Aug16,
+case when cast(Year as integer) = 2016 and Month = 9 then count_of_rendering else 0 end as Sep16,
+case when cast(Year as integer) = 2016 and Month = 10 then count_of_rendering else 0 end as Oct16,
+case when cast(Year as integer) = 2016 and Month = 11 then count_of_rendering else 0 end as Nov16,
+case when cast(Year as integer) = 2016 and Month = 12 then count_of_rendering else 0 end as Dec16,
+case when cast(Year as integer) = 2017 and Month = 1 then count_of_rendering else 0 end as Jan17,
+case when cast(Year as integer) = 2017 and Month = 2 then count_of_rendering else 0 end as Feb17,
+case when cast(Year as integer) = 2017 and Month = 3 then count_of_rendering else 0 end as Mar17,
+case when cast(Year as integer) = 2017 and Month = 4 then count_of_rendering else 0 end as Apr17,
+case when cast(Year as integer) = 2017 and Month = 5 then count_of_rendering else 0 end as May17,
+case when cast(Year as integer) = 2017 and Month = 6 then count_of_rendering else 0 end as Jun17
+from rendering_analysis1
+
+;
+
+
+
+
+---Create Start and End Dates
+drop table if exists rendering_datesz;
+create table rendering_datesz as 
+select distinct  identifier,patientzip,
+min(cast( Cast(year as integer) || '-'|| Month ||'-'|| '01'  as datetime)) as start_date,
+max(cast( Cast(year as integer) || '-'|| Month ||'-'|| '01'  as datetime)) as end_date
+from rendering_analysis1
+group by identifier, patientzip;
+
+
+---Join back to table
+drop table if exists rendering_analysis_14z;
+CREATE TABLE RENDERING_ANALYSIS_14z AS 
+select a.*, b.start_date, b.end_date from rendering_analysis_12z a 
+left join rendering_datesz b on a.identifier = b.identifier and a.patientzip = b.patientzip;
+
+---Create Count of Months
+drop table if exists rendering_analysis_15z;
+create table rendering_analysis_15z as 
+select distinct identifier,patientzip, case when jan14 >0 then 1 else 0 end as jan14c,
+                    case when feb14 >0 then 1 else 0 end as feb14c,
+                    case when mar14 >0 then 1 else 0 end as mar14c,
+                    case when apr14 >0 then 1 else 0 end as apr14c,
+                    case when may14 >0 then 1 else 0 end as may14c,
+                    case when jun14 >0 then 1 else 0 end as jun14c,
+                    case when jul14 >0 then 1 else 0 end as jul14c,
+                    case when aug14 >0 then 1 else 0 end as aug14c,
+                    case when sep14 >0 then 1 else 0 end as sep14c,
+                    case when oct14 >0 then 1 else 0 end as oct14c,
+                    case when nov14 >0 then 1 else 0 end as nov14c,
+                    case when dec14 >0 then 1 else 0 end as dec14c,
+                    case when jan15 >0 then 1 else 0 end as jan15c,
+                    case when feb15 >0 then 1 else 0 end as feb15c,
+                    case when mar15 >0 then 1 else 0 end as mar15c,
+                    case when apr15 >0 then 1 else 0 end as apr15c,
+                    case when may15 >0 then 1 else 0 end as may15c,
+                    case when jun15 >0 then 1 else 0 end as jun15c,
+                    case when jul15 >0 then 1 else 0 end as jul15c,
+                    case when aug15 >0 then 1 else 0 end as aug15c,
+                    case when sep15 >0 then 1 else 0 end as sep15c,
+                    case when oct15 >0 then 1 else 0 end as oct15c,
+                    case when nov15 >0 then 1 else 0 end as nov15c,
+                    case when dec15 >0 then 1 else 0 end as dec15c,
+                    case when jan16 >0 then 1 else 0 end as jan16c,
+                    case when feb16 >0 then 1 else 0 end as feb16c,
+                    case when mar16 >0 then 1 else 0 end as mar16c,
+                    case when apr16 >0 then 1 else 0 end as apr16c,
+                    case when may16 >0 then 1 else 0 end as may16c,
+                    case when jun16 >0 then 1 else 0 end as jun16c,
+                    case when jul16 >0 then 1 else 0 end as jul16c,
+                    case when aug16 >0 then 1 else 0 end as aug16c,
+                    case when sep16 >0 then 1 else 0 end as sep16c,
+                    case when oct16 >0 then 1 else 0 end as oct16c,
+                    case when nov16 >0 then 1 else 0 end as nov16c,
+                    case when dec16 >0 then 1 else 0 end as dec16c,
+                    case when jan17 >0 then 1 else 0 end as jan17c,
+                    case when feb17 >0 then 1 else 0 end as feb17c,
+                    case when mar17 >0 then 1 else 0 end as mar17c,
+                    case when apr17 >0 then 1 else 0 end as apr17c,
+                    case when may17 >0 then 1 else 0 end as may17c,
+                    case when jun17 >0 then 1 else 0 end as jun17c,
+                    (jan14c+ feb14c+ mar14c+ apr14c+ may14c+ jun14c+ jul14c+ aug14c+ sep14c+ oct14c+ nov14c+ dec14c+
+                     jan15c+ feb15c+ mar15c+ apr15c+ may15c+ jun15c+ jul15c+ aug15c+ sep15c+ oct15c+ nov15c+ dec15c+
+                     jan16c+ feb16c+ mar16c+ apr16c+ may16c+ jun16c+ jul16c+ aug16c+ sep16c+ oct16c+ nov16c+ dec16c+
+                     jan17c+ feb17c+ mar17c+ apr17c+ may17c+jun17c) as count_of_months
+                     from rendering_analysis_14z 
+                   ; 
+                   
+                   
+---Join back to table                   
+drop table if exists rendering_analysis_16z;
+create table rendering_analysis_16z as 
+select a.*, b.count_of_months from rendering_analysis_14z a inner join 
+rendering_analysis_15z b on a.identifier = b.identifier and a.patientzip=b.patientzip;
+
+
+----Create Summary Statistics Columns 
+drop table if exists rendering_analysis_17z;
+create table rendering_analysis_17z as 
+select distinct identifier,patientzip, ((jan14+ feb14+ mar14+ apr14+ may14+ jun14+ jul14+ aug14+ sep14+ oct14+ nov14+ dec14+
+                     jan15+ feb15+ mar15+ apr15+ may15+ jun15+ jul15+ aug15+ sep15+ oct15+ nov15+ dec15+
+                     jan16+ feb16+ mar16+ apr16+ may16+ jun16+ jul16+ aug16+ sep16+ oct16+ nov16+ dec16+
+                     jan17+ feb17+ mar17+ apr17+ may17 +jun17)/count_of_months) as average_nonzero
+                     from rendering_analysis_16z
+                     where count_of_months >0                     
+                    ;
+
+--- Join back to original table
+drop table if exists rendering_analysis_18z;
+create table rendering_analysis_18z as
+select a.*, b.average_nonzero from rendering_analysis_16z a 
+inner join rendering_analysis_17z b on a.identifier=b.identifier and a.patientzip=b.patientzip;
+
+----Summary Stats
+drop table if exists rendering_analysis_19z;
+create table rendering_analysis_19z as
+select distinct identifier,patientzip, ((jan14+ feb14+ mar14+ apr14+ may14+ jun14+ jul14+ aug14+ sep14+ oct14+ nov14+ dec14+
+                     jan15+ feb15+ mar15+ apr15+ may15+ jun15+ jul15+ aug15+ sep15+ oct15+ nov15+ dec15+
+                     jan16+ feb16+ mar16+ apr16+ may16+ jun16+ jul16+ aug16+ sep16+ oct16+ nov16+ dec16+
+                     jan17+ feb17+ mar17+ apr17+ may17 +jun17)/42) as mean
+                     from rendering_analysis_18z 
+                     ;
+
+---Join back
+drop table if exists rendering_analysis_20z;
+create table rendering_analysis_20z as
+select a.*, b.mean from rendering_analysis_18z a 
+inner join rendering_analysis_19z b on a.identifier=b.identifier and a.patientzip=b.patientzip;
+
+
+----Summary Stats
+drop table if exists rendering_analysis_21z;
+create table rendering_analysis_21z as
+select distinct identifier,patientzip, (sqrt(( square(jan14-mean)    + square (feb14-mean)    + square (mar14-mean)    + square (apr14-mean)    + square (may14-mean)    + square (jun14-mean)    + square (jul14-mean)    
+                     + square (aug14-mean)    + square (sep14-mean)    + square (oct14-mean)    + square (nov14-mean)    + square (dec14-mean)    +
+                     square (jan15-mean)    + square (feb15-mean)    + square (mar15-mean)    + square (apr15-mean)    + square (may15-mean)    + square (jun15-mean)    + square (jul15-mean)    + square (aug15-mean)    +
+                     square (sep15-mean)    + square (oct15-mean)    + square (nov15-mean)    + square (dec15-mean)    +
+                     square (jan16-mean)    + square (feb16-mean)    + square (mar16-mean)    + square (apr16-mean)    + square (may16-mean)    + square (jun16-mean)    + square (jul16-mean)    + square (aug16-mean)    +
+                     square (sep16-mean)    + square (oct16-mean)    + square (nov16-mean)    + square (dec16-mean)    +
+                     square (jan17-mean)    + square (feb17-mean)    + square (mar17-mean)    + square (apr17-mean)    + square (may17-mean)     + square (jun17-mean)    )/42  ))
+ as stdev
+                     from rendering_analysis_20z 
+                    ;
+      
+----Join back      
+drop table if exists rendering_analysis_22z;
+create table rendering_analysis_22z as
+select a.*, b.stdev from rendering_analysis_20z a 
+inner join rendering_analysis_21z b on a.identifier=b.identifier and a.patientzip=b.patientzip;
+
+
+-----Summary Stats
+drop table if exists rendering_analysis_23z;
+create table rendering_analysis_23z as
+select distinct identifier,patientzip, (sqrt(( square(jan14-average_nonzero)    + square (feb14-average_nonzero)    + square (mar14-average_nonzero)    + square (apr14-average_nonzero)    + square (may14-average_nonzero)    + square (jun14-average_nonzero)    + square (jul14-average_nonzero)    
+                     + square (aug14-average_nonzero)    + square (sep14-average_nonzero)    + square (oct14-average_nonzero)    + square (nov14-average_nonzero)    + square (dec14-average_nonzero)    +
+                     square (jan15-average_nonzero)    + square (feb15-average_nonzero)    + square (mar15-average_nonzero)    + square (apr15-average_nonzero)    + square (may15-average_nonzero)    + square (jun15-average_nonzero)    + square (jul15-average_nonzero)    + square (aug15-average_nonzero)    +
+                     square (sep15-average_nonzero)    + square (oct15-average_nonzero)    + square (nov15-average_nonzero)    + square (dec15-average_nonzero)    +
+                     square (jan16-average_nonzero)    + square (feb16-average_nonzero)    + square (mar16-average_nonzero)    + square (apr16-average_nonzero)    + square (may16-average_nonzero)    + square (jun16-average_nonzero)    + square (jul16-average_nonzero)    + square (aug16-average_nonzero)    +
+                     square (sep16-average_nonzero)    + square (oct16-average_nonzero)    + square (nov16-average_nonzero)    + square (dec16-average_nonzero)    +
+                     square (jan17-average_nonzero)    + square (feb17-average_nonzero)    + square (mar17-average_nonzero)    + square (apr17-average_nonzero)    + square (may17-average_nonzero)     + square (jun17-average_nonzero)    )/42  ))
+ as stdev_nonzero
+                     from rendering_analysis_22z 
+                    ;
+---Join back      
+drop table if exists rendering_analysis_24z;
+create table rendering_analysis_24z as
+select a.*, b.stdev_nonzero from rendering_analysis_22z a 
+inner join rendering_analysis_23z b on a.identifier=b.identifier and a.patientzip=b.patientzip;
+
+      
+
+---Final Table from Analysis
+drop table if exists rendering_analysis_under5;
+create table rendering_analysis_under5 as
+select *, case when stdev = 0 then 0 when mean = 0  then 0 else (stdev/mean) end as stdev_over_mean,
+case when stdev_nonzero = 0 then 0 when average_nonzero = 0  then 0 else (stdev_nonzero/average_nonzero) end as stdev_over_average_nonzero
+from rendering_analysis_24z;
+
+
