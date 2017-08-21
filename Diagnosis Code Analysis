@@ -1,0 +1,373 @@
+---Updating to bring in facility zip, facility state, facility city 
+--1A)creating the patient table from Condor 
+DROP TABLE IF EXISTS sandbox.condor_patient_counts_dx;
+CREATE TABLE sandbox.condor_patient_counts_dx AS
+SELECT    cl.claim_number, 
+          cl.patient_suffix, 
+          upk.patient_address_1 AS soundex_key, 
+          cl.member_adr_zip     AS PatientZip, 
+          cl.patient_gender     AS Gender, 
+          Year(cl.patient_dob)  AS DOB, 
+          cl.admit_diagnosis    AS diagnosis_code_0, 
+          cl.primary_diagnosis  AS diagnosis_code_1, 
+          cl.diagnosis_code_2   AS diagnosis_code_2, 
+          cl.diagnosis_code_3   AS diagnosis_code_3, 
+          cl.diagnosis_code_4   AS diagnosis_code_4, 
+          cl.diagnosis_code_5   AS diagnosis_code_5, 
+          cl.diagnosis_code_6   AS diagnosis_code_6, 
+          cl.diagnosis_code_7   AS diagnosis_code_7, 
+          cl.diagnosis_code_8   AS diagnosis_code_8 
+FROM      rwd.claim_record cl 
+LEFT JOIN rwd.claims_upk_hash upk 
+ON        cl.claim_number = upk.claim_number 
+WHERE     Substring(received_date, 0, 4) IN ('2014', 
+                                             '2015', 
+                                             '2016', 
+                                             '2017'); 
+
+--2A)creating the patient table from Albatross
+DROP TABLE IF EXISTS sandbox.albatross_patient_counts_dx;
+CREATE TABLE sandbox.albatross_patient_counts_dx AS
+SELECT Cast(entityid AS VARCHAR)                 AS claim_number, 
+       patientsuffix                             AS Patient_Suffix, 
+       patientaddress1                           AS soundex_key, 
+       patientzipcode                            AS Zip, 
+       patientsex                                AS Gender, 
+       Year(patientdob)                          AS DOB, 
+       NULL                                      AS diagnosis_code_0, 
+       diagnosiscode_1                           AS diagnosis_code_1, 
+       diagnosiscode_2                           AS diagnosis_code_2, 
+       diagnosiscode_3                           AS diagnosis_code_3, 
+       diagnosiscode_4                           AS diagnosis_code_4, 
+       diagnosiscode_5                           AS diagnosis_code_5, 
+       diagnosiscode_6                           AS diagnosis_code_6, 
+       diagnosiscode_7                           AS diagnosis_code_7, 
+       diagnosiscode_8                           AS diagnosis_code_8 
+FROM   rwd.claims_header 
+WHERE  Substring(createdate, 0, 4) IN ('2014', 
+                                       '2015', 
+                                       '2016', 
+                                       '2017'); 
+
+--3A)creating the patient table from Vulture
+DROP TABLE IF EXISTS vul_counts_1dx;
+CREATE TABLE vul_counts_1dx AS
+SELECT claimid, 
+       key1                       AS patient_suffix, 
+       key2                       AS soundex_key, 
+       zip3                       AS zip, 
+       sex                        AS gender, 
+       Substring(yearofbirth,0,4) AS dob, 
+FROM   rwd.ability_vwpatient 
+WHERE  Substring(processdate, 0, 4) IN ('2014', 
+                                        '2015', 
+                                        '2016', 
+                                        '2017');
+                                        
+DROP TABLE IF EXISTS rs_pm_dx;
+CREATE TABLE rs_pm_dx AS
+SELECT DISTINCT DX.claimid, 
+                DX.diagnosiscode, 
+                DX.sequencenumber 
+FROM            ( 
+                                SELECT DISTINCT DX.claimid, 
+                                                DX.diagnosiscode, 
+                                                DX.sequencenumber, 
+                                                Row_number() OVER(partition BY claimid, sequencenumber ORDER BY type DESC) AS R
+                                FROM            rwd.ability_vwdiagnosis DX 
+                                WHERE           DX.diagnosiscode IS NOT NULL 
+                                OR              DX.diagnosiscode <> 'NULL' ) DX 
+WHERE           DX.r = 1 ; 
+
+---Combining all of them
+DROP TABLE IF EXISTS rs_ability_datapull;
+CREATE TABLE rs_ability_datapull AS
+SELECT    a.*, 
+          DX0.diagnosiscode AS diagnosis_code_0 , 
+          DX1.diagnosiscode AS diagnosis_code_1 , 
+          DX2.diagnosiscode AS diagnosis_code_2 , 
+          DX3.diagnosiscode AS diagnosis_code_3 , 
+          DX4.diagnosiscode AS diagnosis_code_4 , 
+          DX5.diagnosiscode AS diagnosis_code_5 , 
+          DX6.diagnosiscode AS diagnosis_code_6 , 
+          DX7.diagnosiscode AS diagnosis_code_7 , 
+          DX8.diagnosiscode AS diagnosis_code_8 
+FROM      vul_counts_1dx a 
+LEFT JOIN rs_pm_dx DX0 
+ON        DX0.claimid = a.claimid 
+AND       DX0.sequencenumber = '1' 
+LEFT JOIN rs_pm_dx DX1 
+ON        DX1.claimid = a.claimid 
+AND       DX1.sequencenumber = '2' 
+LEFT JOIN rs_pm_dx DX2 
+ON        DX2.claimid = a.claimid 
+AND       DX2.sequencenumber = '3' 
+LEFT JOIN rs_pm_dx DX3 
+ON        DX3.claimid = a.claimid 
+AND       DX3.sequencenumber = '4' 
+LEFT JOIN rs_pm_dx DX4 
+ON        DX4.claimid = a.claimid 
+AND       DX4.sequencenumber = '5' 
+LEFT JOIN rs_pm_dx DX5 
+ON        DX5.claimid = a.claimid 
+AND       DX5.sequencenumber = '6' 
+LEFT JOIN rs_pm_dx DX6 
+ON        DX6.claimid = a.claimid 
+AND       DX6.sequencenumber = '7' 
+LEFT JOIN rs_pm_dx DX7 
+ON        DX7.claimid = a.claimid 
+AND       DX7.sequencenumber = '8' 
+LEFT JOIN rs_pm_dx DX8 
+ON        DX8.claimid = a.claimid 
+AND       DX8.sequencenumber = '9' 
+WHERE     ( 
+                    patient_suffix IS NOT NULL 
+          OR        patient_suffix <> '') ;
+
+
+ALTER TABLE condor_patient_counts_dx DROP COLUMN claim_number;
+ALTER TABLE albatross_patient_counts_dx DROP COLUMN claim_number;
+ALTER TABLE rs_ability_datapull DROP COLUMN claimid;
+SELECT * FROM   rs_ability_datapull limit 100; 
+
+--4)unioning all the tables with patients together
+DROP TABLE IF EXISTS total_patient_counts_dx;
+CREATE TABLE total_patient_counts_dx AS
+             ( 
+                    SELECT * 
+                    FROM   condor_patient_counts_dx 
+             ) 
+      UNION ALL 
+                ( 
+                       SELECT * 
+                       FROM   albatross_patient_counts_dx) 
+         UNION ALL 
+                   ( 
+                          SELECT * 
+                          FROM   rs_ability_datapull); 
+          
+---Create identifier
+DROP TABLE IF EXISTS total_patient_counts_dx2ll;
+CREATE TABLE total_patient_counts_dx2ll AS
+         SELECT DISTINCT (Trim(patient_suffix) 
+                                         ||Trim(soundex_key) 
+                                         ||Trim(gender) 
+                                         ||Trim(Cast(dob AS INTEGER))) AS identifier, 
+                         patientzip, 
+                         diagnosis_code_0, 
+                         diagnosis_code_1, 
+                         diagnosis_code_2, 
+                         diagnosis_code_3, 
+                         diagnosis_code_4, 
+                         diagnosis_code_5, 
+                         diagnosis_code_6 , 
+                         diagnosis_code_7, 
+                         diagnosis_code_8 
+         FROM            total_patient_counts_dx ; 
+          
+---Create single diagnosis column
+DROP TABLE IF EXISTS total_patient_counts_dx3ll;
+CREATE TABLE total_patient_counts_dx3ll AS
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_0 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_1 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_2 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_3 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_4 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_5 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_6 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_7 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll 
+         UNION ALL 
+         SELECT identifier, 
+                patientzip, 
+                diagnosis_code_8 AS diagnosis_code 
+         FROM   total_patient_counts_dx2ll ;DELETE 
+         FROM   total_patient_counts_dx3ll 
+         WHERE  diagnosis_code IS NULL ;
+         
+         DROP TABLE IF EXISTS total_patient_counts_dx4ll;
+         CREATE TABLE total_patient_counts_dx4ll AS
+         SELECT DISTINCT * 
+         FROM            total_patient_counts_dx3ll; 
+          
+----Join back to find Dx grouping
+DROP TABLE IF EXISTS total_patient_counts_dx_final_rs;
+CREATE TABLE total_patient_counts_dx_final_rs AS
+         SELECT    a.*, 
+                   b.dx_group 
+         FROM      total_patient_counts_dx4ll a 
+         LEFT JOIN eu_icd_dx_groups b 
+         ON        a.diagnosis_code = b.code; 
+          
+         ---3.45% are nulls 
+---Get dx codes
+DROP TABLE IF EXISTS total_patient_counts_dx_updatedll;
+CREATE TABLE total_patient_counts_dx_updatedll AS
+         SELECT DISTINCT a.identifier, 
+                         a.patientzip, 
+                         b.code 
+         FROM            total_patient_counts_dx_final_rs a 
+         LEFT JOIN       dx_code_connector b 
+         ON              a.dx_group = b.dx_group 
+         GROUP BY        a.identifier, 
+                         a.patientzip, 
+                         b.code;
+
+DROP TABLE IF EXISTS total_patient_counts_dx_updated_f_rs;
+CREATE TABLE total_patient_counts_dx_updated_f_rs AS
+         SELECT DISTINCT identifier, 
+                         patientzip, 
+                         Sum(code) AS dx_total 
+         FROM            total_patient_counts_dx_updatedll 
+         GROUP BY        identifier, 
+                         patientzip; 
+          
+---Create identifier column from original data pull 
+---Create Final Patient Master table
+
+DROP TABLE IF EXISTS patient_master_final_rs;
+CREATE TABLE patient_master_final_rs AS
+         SELECT    a.*, 
+                   b.dx_total 
+         FROM      allpatients_brezcs2 a 
+         LEFT JOIN total_patient_counts_dx_updated_f_rs b 
+         ON        a.identifier = b.identifier 
+         AND       a.patientzip = b.patientzip; 
+          
+
+
+-----------------------Analysis of Pattern and Count for Key Patients
+DROP TABLE IF EXISTS pattern_analysis_1;
+CREATE TABLE pattern_analysis_1 AS
+         SELECT     a.* , 
+                    b.patientzip, 
+                    b.count_of_rendering, 
+                    b.count_of_billing, 
+                    b.count_facility_zips, 
+                    b.count_facility_city, 
+                    b.count_facility_state, 
+                    b.dx_total, 
+                    (Concat(a.identifier, b.dx_total)) AS identifier_dx 
+         FROM       rendering_analysis_under5_f a 
+         INNER JOIN patient_master_final b 
+         ON         a.identifier = b.identifier 
+         AND        a.patientzip=b.patientzip ; 
+          
+---Create Pattern
+DROP TABLE IF EXISTS pattern_analysis_1b;
+CREATE TABLE pattern_analysis_1b AS 
+         SELECT *, 
+                (Trim(count_of_months) 
+                       ||Trim(count_of_rendering) 
+                       ||Trim(count_of_billing) 
+                       ||Trim(count_facility_zips) 
+                       || Trim(count_facility_city) 
+                       ||Trim(count_facility_state) 
+                       || Trim(dx_total) 
+                       || Trim(average_nonzero) 
+                       || Trim(stdev_over_mean)) AS pattern 
+         FROM   pattern_analysis_1;
+
+DROP TABLE IF EXISTS pattern_connector1;
+CREATE TABLE pattern_connector1 AS
+         SELECT DISTINCT pattern 
+         FROM            pattern_analysis_1b;
+
+DROP TABLE IF EXISTS pattern_connector;
+CREATE TABLE pattern_connector AS
+         SELECT   pattern, 
+                  Row_number() OVER (ORDER BY 1) AS pattern_id 
+         FROM     pattern_connector1; 
+          
+---Final Table
+DROP TABLE IF EXISTS pattern_analysis_1_f;
+CREATE TABLE pattern_analysis_1_f AS 
+         SELECT DISTINCT a.*, 
+                         b.pattern_id 
+         FROM            pattern_analysis_1b a 
+         LEFT JOIN       pattern_connector b 
+         ON              a.pattern=b.pattern;
+
+DROP TABLE IF EXISTS pattern_analysis_identifiernozip;
+CREATE TABLE pattern_analysis_identifiernozip AS
+         SELECT   count_of_months, 
+                  count_of_rendering, 
+                  count_of_billing, 
+                  count_facility_zips, 
+                  count_facility_city, 
+                  count_facility_state, 
+                  dx_total, 
+                  average_nonzero, 
+                  stdev_over_mean, 
+                  pattern_id, 
+                  Count(DISTINCT(identifier)) AS patientcount 
+         FROM     pattern_analysis_1_f 
+         GROUP BY count_of_months, 
+                  count_of_rendering, 
+                  count_of_billing, 
+                  count_facility_zips, 
+                  count_facility_city, 
+                  count_facility_state, 
+                  dx_total, 
+                  average_nonzero, 
+                  stdev_over_mean, 
+                  pattern_id;
+
+DROP TABLE IF EXISTS pattern_analysis_identifierdx;
+CREATE TABLE pattern_analysis_identifierdx AS
+         SELECT   count_of_months, 
+                  count_of_rendering, 
+                  count_of_billing, 
+                  count_facility_zips, 
+                  count_facility_city, 
+                  count_facility_state, 
+                  dx_total, 
+                  average_nonzero, 
+                  mean_over_stdev, 
+                  pattern_id, 
+                  Count(DISTINCT(identifier_dx)) AS patientcount 
+         FROM     pattern_analysis_1_f 
+         GROUP BY count_of_months, 
+                  count_of_rendering, 
+                  count_of_billing, 
+                  count_facility_zips, 
+                  count_facility_city, 
+                  count_facility_state, 
+                  dx_total, 
+                  average_nonzero, 
+                  mean_over_stdev, 
+                  pattern_id;CREATE TABLE zip_counts_dx AS 
+         SELECT DISTINCT identifier_dx, 
+                         Count(DISTINCT (patientzip)) AS zipcounts 
+         FROM            rendering_analysis_1_f 
+         GROUP BY        identifier_dx;
